@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Editor — DevTools</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+.editor-shell {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  height: calc(100vh - 180px);
+  min-height: 420px;
+}
+.editor-pane, .preview-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.editor-pane { border-right: 1px solid var(--border); }
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.pane-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.md-editor {
+  flex: 1;
+  background: var(--bg);
+  border: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.8;
+  padding: 20px;
+  resize: none;
+  outline: none;
+}
+.md-preview {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.md-preview h1,h2,h3,h4 { color:var(--text); margin:1em 0 0.4em; font-weight:700; letter-spacing:-0.01em; }
+.md-preview h1 { font-size:1.8em; border-bottom:1px solid var(--border); padding-bottom:0.3em; }
+.md-preview h2 { font-size:1.4em; }
+.md-preview h3 { font-size:1.15em; }
+.md-preview p  { margin-bottom: 0.8em; color: var(--text-dim); }
+.md-preview a  { color: var(--accent-g); text-decoration:none; }
+.md-preview a:hover { text-decoration:underline; }
+.md-preview code { background:var(--surface2); border:1px solid var(--border); padding:2px 6px; border-radius:4px; font-family:var(--font-mono); font-size:12px; color:var(--accent-g); }
+.md-preview pre  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; overflow-x:auto; margin:12px 0; }
+.md-preview pre code { background:none; border:none; padding:0; color:var(--text); }
+.md-preview blockquote { border-left:3px solid var(--accent); margin:12px 0; padding:8px 16px; color:var(--muted); background:rgba(99,102,241,0.05); border-radius:0 6px 6px 0; }
+.md-preview ul,ol { margin:8px 0 8px 24px; color:var(--text-dim); }
+.md-preview li { margin-bottom:4px; }
+.md-preview table { border-collapse:collapse; width:100%; margin:12px 0; }
+.md-preview th { background:var(--surface); color:var(--text); padding:8px 12px; text-align:left; border:1px solid var(--border); font-size:12px; text-transform:uppercase; letter-spacing:0.04em; }
+.md-preview td { padding:8px 12px; border:1px solid var(--border); color:var(--text-dim); }
+.md-preview tr:hover td { background:var(--surface); }
+.md-preview hr { border:none; border-top:1px solid var(--border); margin:16px 0; }
+.md-preview img { max-width:100%; border-radius:var(--radius); }
+.toolbar { display:flex; gap:4px; }
+.tb-btn {
+  width:28px; height:28px;
+  display:flex; align-items:center; justify-content:center;
+  background:none; border:1px solid transparent;
+  border-radius:6px; color:var(--muted);
+  cursor:pointer; font-size:13px; font-weight:700;
+  transition:all var(--transition);
+}
+.tb-btn:hover { background:var(--surface2); color:var(--text); border-color:var(--border); }
+.word-count { font-size:11px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="nav-root"></div>
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <div class="page-title">Markdown Editor</div>
+          <div class="page-subtitle">Write and preview Markdown in real time</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost" onclick="copyHtml()">Copy HTML</button>
+          <button class="btn btn-ghost" onclick="downloadMd()">Download .md</button>
+        </div>
+      </div>
+    </div>
+    <div class="content" style="padding-bottom:0;">
+      <div class="editor-shell">
+        <div class="editor-pane">
+          <div class="pane-header">
+            <span class="pane-label">Markdown</span>
+            <div class="flex gap-2 items-center">
+              <div class="toolbar">
+                <button class="tb-btn" onclick="wrap('**','**')" title="Bold">B</button>
+                <button class="tb-btn" onclick="wrap('*','*')" title="Italic" style="font-style:italic;">I</button>
+                <button class="tb-btn" onclick="wrap('`','`')" title="Code" style="font-family:var(--font-mono);">`</button>
+                <button class="tb-btn" onclick="insert('# ')" title="Heading">H</button>
+                <button class="tb-btn" onclick="insert('> ')" title="Quote">"</button>
+                <button class="tb-btn" onclick="insert('- ')" title="List">•</button>
+              </div>
+              <span class="word-count" id="word-count">0 words</span>
+            </div>
+          </div>
+          <textarea class="md-editor" id="editor" oninput="update()" placeholder="Start writing Markdown…
+
+# Hello World
+
+Type here and see live preview on the right.
+
+**Bold**, *italic*, `code`, [links](https://example.com)
+
+> Blockquotes
+
+- Lists
+
+---
+
+| Table | Column |
+|-------|--------|
+| Row   | Data   |"></textarea>
+        </div>
+        <div class="preview-pane">
+          <div class="pane-header">
+            <span class="pane-label">Preview</span>
+          </div>
+          <div class="md-preview" id="preview"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="nav.js"></script>
+<script>
+document.getElementById('nav-root').innerHTML = renderNav('markdown.html');
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+
+const SAMPLE = `# Welcome to Markdown Editor
+
+Start typing on the **left** and see a live *preview* on the right.
+
+## Features
+
+- Real-time preview
+- Syntax highlighting
+- Copy HTML output
+- Download your file
+
+## Code
+
+\`\`\`javascript
+const hello = () => console.log("Hello, world!");
+hello();
+\`\`\`
+
+> Tip: Use the toolbar buttons above to insert formatting quickly.
+
+| Syntax | Result |
+|--------|--------|
+| \`**text**\` | **bold** |
+| \`*text*\` | *italic* |
+| \`\`code\`\` | \`inline code\` |
+`;
+
+editor.value = SAMPLE;
+
+function update() {
+  preview.innerHTML = marked.parse(editor.value);
+  const words = editor.value.trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById('word-count').textContent = `${words} word${words!==1?'s':''}`;
+}
+
+function wrap(before, after) {
+  const s = editor.selectionStart, e = editor.selectionEnd;
+  const sel = editor.value.slice(s, e);
+  editor.value = editor.value.slice(0,s) + before + sel + after + editor.value.slice(e);
+  editor.focus(); editor.setSelectionRange(s+before.length, e+before.length);
+  update();
+}
+
+function insert(text) {
+  const s = editor.selectionStart;
+  const lineStart = editor.value.lastIndexOf('\n', s-1)+1;
+  editor.value = editor.value.slice(0, lineStart) + text + editor.value.slice(lineStart);
+  editor.focus();
+  update();
+}
+
+function copyHtml() {
+  navigator.clipboard.writeText(preview.innerHTML).then(()=>showToast('HTML copied!','success'));
+}
+
+function downloadMd() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([editor.value],{type:'text/markdown'}));
+  a.download = 'document.md';
+  a.click();
+}
+
+update();
+</script>
+</body>
+</html>
