@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Tool — DevTools</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: var(--surface);
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(99,102,241,0.06);
+}
+.drop-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.6; }
+.drop-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.drop-sub { font-size: 12px; color: var(--muted); }
+.drop-zone input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+.preview-wrap {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.preview-box {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: 200px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.preview-box img {
+  max-width: 100%; max-height: 280px;
+  display: block;
+  object-fit: contain;
+}
+.preview-label {
+  position: absolute; top: 8px; left: 10px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 2px 8px; border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.info-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+.info-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 14px;
+  display: flex; justify-content: space-between;
+  align-items: center;
+}
+.info-key   { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.info-value { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-weight: 600; }
+
+.op-tabs { display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+.op-tab {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+}
+.op-tab:hover { color: var(--text); }
+.op-tab.active { background: var(--accent); color: #fff; border-color: transparent; }
+.op-panel { display:none; }
+.op-panel.active { display:block; }
+
+.range-row { display:flex; align-items:center; gap:12px; }
+.range-row input[type=range] {
+  flex:1; -webkit-appearance:none; appearance:none;
+  height:4px; background:var(--border); border-radius:4px; outline:none;
+}
+.range-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:18px; height:18px;
+  border-radius:50%; background:var(--accent); cursor:pointer;
+  box-shadow:0 0 0 3px rgba(99,102,241,0.2);
+}
+.range-val { font-family:var(--font-mono); font-size:14px; color:var(--text); width:40px; text-align:right; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="nav-root"></div>
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <div class="page-title">Image Tool</div>
+          <div class="page-subtitle">Resize, compress, convert, and filter images</div>
+        </div>
+      </div>
+    </div>
+    <div class="content">
+      <div id="upload-section">
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" accept="image/*" id="file-input" onchange="loadImage(this.files[0])">
+          <div class="drop-icon">◻</div>
+          <div class="drop-title">Drop an image here</div>
+          <div class="drop-sub">or click to browse — PNG, JPG, WebP, GIF, BMP, SVG</div>
+        </div>
+      </div>
+
+      <div id="editor-section" style="display:none;">
+        <div class="flex justify-between items-center mb-3">
+          <div class="flex gap-2 items-center">
+            <span class="page-title" style="font-size:18px;" id="file-name"></span>
+            <span class="badge badge-accent" id="file-type"></span>
+          </div>
+          <button class="btn btn-ghost" onclick="reset()">← New Image</button>
+        </div>
+
+        <div class="info-grid mb-3" id="info-grid"></div>
+
+        <div class="preview-wrap">
+          <div class="preview-box">
+            <span class="preview-label">Original</span>
+            <img id="orig-img" alt="Original">
+          </div>
+          <div class="preview-box">
+            <span class="preview-label">Result</span>
+            <img id="result-img" alt="Result">
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="op-tabs">
+            <button class="op-tab active" onclick="switchOp('resize',this)">Resize</button>
+            <button class="op-tab" onclick="switchOp('compress',this)">Compress</button>
+            <button class="op-tab" onclick="switchOp('convert',this)">Convert</button>
+            <button class="op-tab" onclick="switchOp('filters',this)">Filters</button>
+            <button class="op-tab" onclick="switchOp('crop',this)">Crop</button>
+          </div>
+
+          <!-- Resize -->
+          <div class="op-panel active" id="op-resize">
+            <div class="grid-2 mb-3">
+              <div><label>Width (px)</label><input type="number" id="r-w" oninput="linkDim('w')" min="1"></div>
+              <div><label>Height (px)</label><input type="number" id="r-h" oninput="linkDim('h')" min="1"></div>
+            </div>
+            <div class="flex gap-3 items-center mb-3">
+              <label class="toggle" style="display:inline-flex;gap:8px;align-items:center;text-transform:none;font-size:13px;color:var(--text-dim);">
+                <input type="checkbox" id="lock-ratio" checked style="width:auto;background:none;border:none;padding:0;">
+                Lock aspect ratio
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="applyResize()">Apply Resize</button>
+          </div>
+
+          <!-- Compress -->
+          <div class="op-panel" id="op-compress">
+            <div class="mb-3">
+              <label>Quality — <span id="q-val">80</span>%</label>
+              <div class="range-row mt-2">
+                <input type="range" id="quality" min="1" max="100" value="80" oninput="document.getElementById('q-val').textContent=this.value;applyCompress()">
+                <span class="range-val" id="q-pct">80%</span>
+              </div>
+            </div>
+            <div id="compress-info" class="text-muted text-sm"></div>
+          </div>
+
+          <!-- Convert -->
+          <div class="op-panel" id="op-convert">
+            <div class="mb-3">
+              <label>Output Format</label>
+              <select id="convert-fmt" onchange="applyConvert()">
+                <option value="image/png">PNG</option>
+                <option value="image/jpeg">JPEG</option>
+                <option value="image/webp">WebP</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="applyConvert()">Convert Format</button>
+          </div>
+
+          <!-- Filters -->
+          <div class="op-panel" id="op-filters">
+            <div class="grid-2">
+              <div><label>Brightness — <span id="br-val">100</span>%</label>
+                <div class="range-row mt-2"><input type="range" id="f-brightness" min="0" max="200" value="100" oninput="document.getElementById('br-val').textContent=this.value;applyFilters()"></div>
+              </div>
+              <div><label>Contrast — <span id="co-val">100</span>%</label>
+                <div class="range-row mt-2"><input type="range" id="f-contrast" min="0" max="200" value="100" oninput="document.getElementById('co-val').textContent=this.value;applyFilters()"></div>
+              </div>
+              <div><label>Saturation — <span id="sa-val">100</span>%</label>
+                <div class="range-row mt-2"><input type="range" id="f-saturate" min="0" max="300" value="100" oninput="document.getElementById('sa-val').textContent=this.value;applyFilters()"></div>
+              </div>
+              <div><label>Blur — <span id="bl-val">0</span>px</label>
+                <div class="range-row mt-2"><input type="range" id="f-blur" min="0" max="20" value="0" oninput="document.getElementById('bl-val').textContent=this.value;applyFilters()"></div>
+              </div>
+              <div><label>Hue Rotate — <span id="hu-val">0</span>°</label>
+                <div class="range-row mt-2"><input type="range" id="f-hue" min="0" max="360" value="0" oninput="document.getElementById('hu-val').textContent=this.value;applyFilters()"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;padding-top:22px;">
+                <button class="btn btn-ghost" onclick="applyGrayscale()">Grayscale</button>
+                <button class="btn btn-ghost" onclick="applySepia()">Sepia</button>
+                <button class="btn btn-ghost" onclick="resetFilters()">Reset</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Crop -->
+          <div class="op-panel" id="op-crop">
+            <div class="grid-2 mb-3">
+              <div><label>X offset</label><input type="number" id="c-x" value="0" min="0"></div>
+              <div><label>Y offset</label><input type="number" id="c-y" value="0" min="0"></div>
+              <div><label>Width</label><input type="number" id="c-w" min="1"></div>
+              <div><label>Height</label><input type="number" id="c-h" min="1"></div>
+            </div>
+            <button class="btn btn-primary" onclick="applyCrop()">Apply Crop</button>
+          </div>
+
+          <div class="divider"></div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary" onclick="downloadResult()">Download Result</button>
+            <button class="btn btn-ghost" onclick="applyToOrig()">Apply & Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="nav.js"></script>
+<script>
+document.getElementById('nav-root').innerHTML = renderNav('image-tool.html');
+
+let origFile, origImg = new Image(), resultCanvas = document.createElement('canvas');
+let origW, origH, ratio;
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', ()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag-over'); loadImage(e.dataTransfer.files[0]); });
+
+function loadImage(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  origFile = file;
+  const url = URL.createObjectURL(file);
+  origImg.onload = () => {
+    origW = origImg.naturalWidth; origH = origImg.naturalHeight;
+    ratio = origW/origH;
+    document.getElementById('r-w').value = origW;
+    document.getElementById('r-h').value = origH;
+    document.getElementById('c-w').value = origW;
+    document.getElementById('c-h').value = origH;
+    document.getElementById('orig-img').src = url;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-type').textContent = file.type.split('/')[1].toUpperCase();
+    document.getElementById('upload-section').style.display='none';
+    document.getElementById('editor-section').style.display='block';
+    drawInfo(file.size, origW, origH);
+    copyToResult();
+  };
+  origImg.src = url;
+}
+
+function drawInfo(size, w, h) {
+  document.getElementById('info-grid').innerHTML = [
+    ['Width', w+'px'], ['Height', h+'px'],
+    ['File Size', fmt(size)], ['Aspect', gcd(w,h,w)+':'+gcd(w,h,h)]
+  ].map(([k,v])=>`<div class="info-item"><span class="info-key">${k}</span><span class="info-value">${v}</span></div>`).join('');
+}
+function gcd(a,b,n) { return b ? gcd(b, a%b, n) : n/a; }
+function fmt(bytes) {
+  if (bytes<1024) return bytes+'B';
+  if (bytes<1048576) return (bytes/1024).toFixed(1)+'KB';
+  return (bytes/1048576).toFixed(2)+'MB';
+}
+
+function copyToResult() {
+  resultCanvas.width = origW; resultCanvas.height = origH;
+  const ctx = resultCanvas.getContext('2d');
+  ctx.drawImage(origImg, 0, 0);
+  updateResultPreview();
+}
+
+function updateResultPreview() {
+  document.getElementById('result-img').src = resultCanvas.toDataURL();
+}
+
+function switchOp(op, btn) {
+  document.querySelectorAll('.op-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.op-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('op-'+op).classList.add('active');
+}
+
+function linkDim(changed) {
+  if (!document.getElementById('lock-ratio').checked) return;
+  if (changed==='w') document.getElementById('r-h').value = Math.round(+document.getElementById('r-w').value / ratio);
+  else document.getElementById('r-w').value = Math.round(+document.getElementById('r-h').value * ratio);
+}
+
+function applyResize() {
+  const w = +document.getElementById('r-w').value;
+  const h = +document.getElementById('r-h').value;
+  resultCanvas.width = w; resultCanvas.height = h;
+  resultCanvas.getContext('2d').drawImage(origImg, 0, 0, w, h);
+  updateResultPreview();
+  showToast(`Resized to ${w}×${h}`, 'success');
+}
+
+function applyCompress() {
+  const q = +document.getElementById('quality').value / 100;
+  document.getElementById('q-pct').textContent = Math.round(q*100)+'%';
+  const dataUrl = resultCanvas.toDataURL('image/jpeg', q);
+  document.getElementById('result-img').src = dataUrl;
+  const approxSize = Math.round(dataUrl.length * 0.75);
+  document.getElementById('compress-info').textContent = `Estimated size: ~${fmt(approxSize)}`;
+}
+
+function applyConvert() {
+  const fmt = document.getElementById('convert-fmt').value;
+  document.getElementById('result-img').src = resultCanvas.toDataURL(fmt);
+  showToast('Format converted', 'success');
+}
+
+function applyFilters() {
+  const b = document.getElementById('f-brightness').value;
+  const c = document.getElementById('f-contrast').value;
+  const s = document.getElementById('f-saturate').value;
+  const bl= document.getElementById('f-blur').value;
+  const h = document.getElementById('f-hue').value;
+  document.getElementById('result-img').style.filter =
+    `brightness(${b}%) contrast(${c}%) saturate(${s}%) blur(${bl}px) hue-rotate(${h}deg)`;
+}
+function applyGrayscale() {
+  document.getElementById('result-img').style.filter = 'grayscale(100%)';
+}
+function applySepia() {
+  document.getElementById('result-img').style.filter = 'sepia(100%)';
+}
+function resetFilters() {
+  ['f-brightness','f-contrast','f-saturate'].forEach(id=>document.getElementById(id).value=100);
+  document.getElementById('f-blur').value = 0;
+  document.getElementById('f-hue').value = 0;
+  ['br-val','co-val','sa-val'].forEach(id=>document.getElementById(id).textContent=100);
+  document.getElementById('bl-val').textContent=0;
+  document.getElementById('hu-val').textContent=0;
+  document.getElementById('result-img').style.filter = '';
+}
+
+function applyCrop() {
+  const x=+document.getElementById('c-x').value, y=+document.getElementById('c-y').value;
+  const w=+document.getElementById('c-w').value, h=+document.getElementById('c-h').value;
+  const tmp = document.createElement('canvas'); tmp.width=w; tmp.height=h;
+  tmp.getContext('2d').drawImage(origImg, x, y, w, h, 0, 0, w, h);
+  resultCanvas = tmp;
+  updateResultPreview();
+  showToast(`Cropped to ${w}×${h}`, 'success');
+}
+
+function applyToOrig() {
+  origImg.src = resultCanvas.toDataURL();
+  origImg.onload = () => { origW=origImg.naturalWidth; origH=origImg.naturalHeight; ratio=origW/origH; };
+  showToast('Applied to original', 'success');
+}
+
+function downloadResult() {
+  const fmt = document.getElementById('convert-fmt')?.value || 'image/png';
+  const ext = fmt.split('/')[1];
+  const a = document.createElement('a');
+  a.href = resultCanvas.toDataURL(fmt, +document.getElementById('quality').value/100);
+  a.download = `result.${ext}`;
+  a.click();
+}
+
+function reset() {
+  document.getElementById('upload-section').style.display='block';
+  document.getElementById('editor-section').style.display='none';
+  document.getElementById('file-input').value='';
+}
+</script>
+</body>
+</html>
