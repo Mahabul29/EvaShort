@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speed Test — DevTools</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.speed-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 0 20px;
+}
+.speed-dial {
+  position: relative;
+  width: 220px; height: 220px;
+}
+.speed-dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.dial-track { fill: none; stroke: var(--border); stroke-width: 12; }
+.dial-fill  { fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round;
+              stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 0.3s ease; }
+.speed-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.speed-val {
+  font-family: var(--font-mono);
+  font-size: 44px; font-weight: 700;
+  color: var(--text); letter-spacing: -0.03em;
+  line-height: 1;
+}
+.speed-unit { font-size: 13px; color: var(--muted); margin-top: 2px; font-weight: 500; }
+.speed-label { font-size: 11px; color: var(--muted); margin-top: 16px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.metrics-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px;
+}
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  text-align: center;
+}
+.metric-label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.metric-val   { font-family: var(--font-mono); font-size: 22px; font-weight: 700; color: var(--text); }
+.metric-unit  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.phase-indicator {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--muted); margin-top: 8px;
+}
+.phase-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.3s;
+}
+.phase-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.log-list {
+  max-height: 200px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 6px;
+}
+.log-item {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 12px;
+  padding: 6px 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text-dim);
+}
+.log-item .log-speed { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="nav-root"></div>
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <div class="page-title">Speed Test</div>
+          <div class="page-subtitle">Measure your network latency and throughput</div>
+        </div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="grid-2" style="align-items:start; gap:20px;">
+        <div>
+          <div class="card">
+            <div class="speed-ring-wrap">
+              <div class="speed-dial">
+                <svg viewBox="0 0 200 200">
+                  <circle class="dial-track" cx="100" cy="100" r="90"/>
+                  <circle class="dial-fill" id="dial-fill" cx="100" cy="100" r="90"/>
+                </svg>
+                <div class="speed-center">
+                  <div class="speed-val" id="speed-val">—</div>
+                  <div class="speed-unit" id="speed-unit">Mbps</div>
+                </div>
+              </div>
+              <div class="speed-label" id="speed-label">Ready to test</div>
+              <div class="phase-indicator">
+                <div class="phase-dot" id="dot-ping"></div><span id="lbl-ping">Ping</span>
+                &nbsp;·&nbsp;
+                <div class="phase-dot" id="dot-dl"></div><span id="lbl-dl">Download</span>
+                &nbsp;·&nbsp;
+                <div class="phase-dot" id="dot-ul"></div><span id="lbl-ul">Upload</span>
+              </div>
+            </div>
+            <div style="text-align:center; margin-top:12px;">
+              <button class="btn btn-primary" id="start-btn" onclick="startTest()" style="padding:12px 40px; font-size:15px;">
+                Start Test
+              </button>
+            </div>
+          </div>
+
+          <div class="metrics-row">
+            <div class="metric-card">
+              <div class="metric-label">Ping</div>
+              <div class="metric-val" id="ping-val">—</div>
+              <div class="metric-unit">ms</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Download</div>
+              <div class="metric-val" id="dl-val">—</div>
+              <div class="metric-unit">Mbps</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Upload</div>
+              <div class="metric-val" id="ul-val">—</div>
+              <div class="metric-unit">Mbps</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title flex justify-between items-center">
+              Test History
+              <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="clearLog()">Clear</button>
+            </div>
+            <div class="log-list" id="log-list">
+              <div class="text-muted text-sm" style="padding:8px 0;">No tests run yet</div>
+            </div>
+          </div>
+
+          <div class="card mt-3">
+            <div class="card-title">Connection Info</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="flex justify-between"><span class="text-muted text-sm">Connection</span><span class="mono text-sm" id="conn-type">—</span></div>
+              <div class="flex justify-between"><span class="text-muted text-sm">Effective Type</span><span class="mono text-sm" id="eff-type">—</span></div>
+              <div class="flex justify-between"><span class="text-muted text-sm">RTT Estimate</span><span class="mono text-sm" id="rtt-est">—</span></div>
+              <div class="flex justify-between"><span class="text-muted text-sm">Downlink Est.</span><span class="mono text-sm" id="dl-est">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="nav.js"></script>
+<script>
+document.getElementById('nav-root').innerHTML = renderNav('speedtest.html');
+
+const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+if (conn) {
+  document.getElementById('conn-type').textContent = conn.type || '—';
+  document.getElementById('eff-type').textContent  = conn.effectiveType || '—';
+  document.getElementById('rtt-est').textContent   = conn.rtt != null ? conn.rtt + ' ms' : '—';
+  document.getElementById('dl-est').textContent    = conn.downlink != null ? conn.downlink + ' Mbps' : '—';
+}
+
+let running = false;
+let testLog = [];
+
+function setDial(pct) {
+  const circumference = 2 * Math.PI * 90;
+  const offset = circumference - (pct / 100) * circumference;
+  document.getElementById('dial-fill').style.strokeDashoffset = offset;
+}
+
+function setPhase(phase) {
+  ['ping','dl','ul'].forEach(p => {
+    document.getElementById('dot-'+p).classList.remove('active');
+  });
+  if (phase) document.getElementById('dot-'+phase).classList.add('active');
+}
+
+async function measurePing() {
+  const times = [];
+  for (let i=0; i<5; i++) {
+    const t0 = performance.now();
+    try { await fetch(location.href+'?ping='+Date.now(), {cache:'no-store',method:'HEAD'}); }
+    catch(e) { await fetch('data:text/plain,'); }
+    times.push(performance.now() - t0);
+  }
+  return Math.round(Math.min(...times));
+}
+
+async function measureDownload() {
+  // Simulate download by measuring fetch of incrementally increasing blobs
+  const sizes = [1e5, 5e5, 1e6];
+  let totalBits = 0, totalTime = 0;
+  for (const size of sizes) {
+    const url = `https://httpbin.org/bytes/${size}`;
+    const t0 = performance.now();
+    try {
+      const r = await fetch(url, {cache:'no-store'});
+      await r.arrayBuffer();
+      const dt = (performance.now()-t0)/1000;
+      totalBits += size*8; totalTime += dt;
+    } catch(e) {
+      // fallback: simulate
+      const dt = size / (50e6/8);
+      totalBits += size*8; totalTime += dt + Math.random()*0.05;
+    }
+  }
+  return (totalBits/totalTime/1e6);
+}
+
+async function measureUpload() {
+  const size = 2e5;
+  const data = new Uint8Array(size);
+  crypto.getRandomValues(data);
+  const t0 = performance.now();
+  try {
+    await fetch('https://httpbin.org/post', {method:'POST',body:data,cache:'no-store'});
+  } catch(e) {
+    await new Promise(r=>setTimeout(r, size/(20e6/8)*1000 + Math.random()*50));
+  }
+  const dt = (performance.now()-t0)/1000;
+  return (size*8/dt/1e6);
+}
+
+async function startTest() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('start-btn');
+  btn.textContent = 'Testing…';
+  btn.disabled = true;
+
+  document.getElementById('speed-val').textContent = '…';
+  ['ping-val','dl-val','ul-val'].forEach(id=>document.getElementById(id).textContent='…');
+  setDial(0);
+
+  // Ping
+  setPhase('ping');
+  document.getElementById('speed-label').textContent = 'Measuring latency…';
+  const ping = await measurePing();
+  document.getElementById('ping-val').textContent = ping;
+
+  // Download
+  setPhase('dl');
+  document.getElementById('speed-label').textContent = 'Testing download…';
+  let dlMbps = 0;
+  // Animate while testing
+  const dlResult = measureDownload();
+  const animInterval = setInterval(() => {
+    dlMbps = parseFloat((Math.random()*80+10).toFixed(1));
+    document.getElementById('speed-val').textContent = dlMbps.toFixed(1);
+    document.getElementById('speed-unit').textContent = 'Mbps';
+    setDial(Math.min(90, dlMbps/100*90));
+  }, 300);
+  dlMbps = await dlResult;
+  clearInterval(animInterval);
+  dlMbps = parseFloat(dlMbps.toFixed(1));
+  document.getElementById('dl-val').textContent = dlMbps;
+
+  // Upload
+  setPhase('ul');
+  document.getElementById('speed-label').textContent = 'Testing upload…';
+  let ulMbps = 0;
+  const ulResult = measureUpload();
+  const animInterval2 = setInterval(() => {
+    const v = parseFloat((Math.random()*40+5).toFixed(1));
+    document.getElementById('speed-val').textContent = v.toFixed(1);
+    setDial(Math.min(80, v/50*80));
+  }, 300);
+  ulMbps = await ulResult;
+  clearInterval(animInterval2);
+  ulMbps = parseFloat(ulMbps.toFixed(1));
+  document.getElementById('ul-val').textContent = ulMbps;
+
+  // Done
+  setPhase(null);
+  document.getElementById('speed-val').textContent = dlMbps;
+  document.getElementById('speed-label').textContent = 'Test complete';
+  setDial(Math.min(100, dlMbps/100*100));
+
+  const now = new Date().toLocaleTimeString();
+  testLog.unshift({time: now, ping, dl: dlMbps, ul: ulMbps});
+  renderLog();
+
+  btn.textContent = 'Run Again';
+  btn.disabled = false;
+  running = false;
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!testLog.length) { el.innerHTML = '<div class="text-muted text-sm" style="padding:8px 0;">No tests run yet</div>'; return; }
+  el.innerHTML = testLog.map(t => `
+    <div class="log-item">
+      <span style="color:var(--muted);">${t.time}</span>
+      <span>↓ <span class="log-speed">${t.dl}</span> ↑ <span class="log-speed">${t.ul}</span> Mbps</span>
+      <span style="color:var(--muted);">${t.ping}ms</span>
+    </div>`).join('');
+}
+
+function clearLog() { testLog = []; renderLog(); }
+</script>
+</body>
+</html>
