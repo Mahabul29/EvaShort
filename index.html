@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevTools Suite</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.hero {
+  padding: 48px 0 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+.hero-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-g);
+  margin-bottom: 12px;
+}
+.hero-title {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.hero-title span {
+  background: linear-gradient(135deg, var(--accent), var(--accent-g));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-desc {
+  font-size: 15px;
+  color: var(--muted);
+  max-width: 480px;
+  line-height: 1.7;
+}
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.tool-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 150ms ease;
+}
+.tool-card:hover {
+  border-color: var(--accent);
+  background: var(--surface2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99,102,241,0.15);
+}
+.tool-icon {
+  width: 40px; height: 40px;
+  background: rgba(99,102,241,0.12);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  color: var(--accent-g);
+  transition: background 150ms ease;
+}
+.tool-card:hover .tool-icon {
+  background: rgba(99,102,241,0.22);
+}
+.tool-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tool-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stat-pill b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="nav-root"></div>
+  <main class="main">
+    <div class="content">
+      <div class="hero">
+        <div class="hero-label">Developer Utilities</div>
+        <h1 class="hero-title">Every tool you need,<br><span>in one place.</span></h1>
+        <p class="hero-desc">A focused collection of browser-based utilities — no installs, no accounts, no tracking.</p>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-pill"><b>9</b> Tools</div>
+        <div class="stat-pill"><b>100%</b> Client-side</div>
+        <div class="stat-pill" style="color:var(--success);"><b>●</b> Ready</div>
+      </div>
+
+      <div class="tool-grid">
+        <a href="calculator.html" class="tool-card">
+          <div class="tool-icon">∑</div>
+          <div class="tool-name">Calculator</div>
+          <div class="tool-desc">Expression evaluator with history</div>
+        </a>
+        <a href="converter.html" class="tool-card">
+          <div class="tool-icon">⇌</div>
+          <div class="tool-name">Converter</div>
+          <div class="tool-desc">Units, currencies, and more</div>
+        </a>
+        <a href="password.html" class="tool-card">
+          <div class="tool-icon">◈</div>
+          <div class="tool-name">Password</div>
+          <div class="tool-desc">Generate secure passwords</div>
+        </a>
+        <a href="markdown.html" class="tool-card">
+          <div class="tool-icon">✦</div>
+          <div class="tool-name">Markdown</div>
+          <div class="tool-desc">Live preview editor</div>
+        </a>
+        <a href="speedtest.html" class="tool-card">
+          <div class="tool-icon">⚡</div>
+          <div class="tool-name">Speed Test</div>
+          <div class="tool-desc">Network latency & throughput</div>
+        </a>
+        <a href="qrcode.html" class="tool-card">
+          <div class="tool-icon">▦</div>
+          <div class="tool-name">QR Code</div>
+          <div class="tool-desc">Generate & decode QR codes</div>
+        </a>
+        <a href="image-tool.html" class="tool-card">
+          <div class="tool-icon">◻</div>
+          <div class="tool-name">Image Tool</div>
+          <div class="tool-desc">Resize, compress & convert</div>
+        </a>
+        <a href="todo.html" class="tool-card">
+          <div class="tool-icon">✓</div>
+          <div class="tool-name">To-Do</div>
+          <div class="tool-desc">Task list with local storage</div>
+        </a>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="nav.js"></script>
+<script>document.getElementById('nav-root').innerHTML = renderNav('index.html');</script>
+</body>
+</html>
