@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>To-Do — DevTools</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.todo-input-row {
+  display: flex; gap: 8px; margin-bottom: 24px;
+}
+.todo-input-row input {
+  flex: 1;
+}
+.filter-row {
+  display: flex; gap: 6px; align-items: center; margin-bottom: 16px;
+}
+.filter-btn {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+}
+.filter-btn:hover { color: var(--text); }
+.filter-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
+.filter-spacer { flex: 1; }
+
+.todo-list { display: flex; flex-direction: column; gap: 8px; }
+
+.todo-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  transition: all var(--transition);
+  animation: fadeIn 0.15s ease;
+  cursor: grab;
+}
+.todo-item:hover { border-color: var(--surface2); }
+.todo-item.done { opacity: 0.55; }
+.todo-item.done .todo-text { text-decoration: line-through; color: var(--muted); }
+
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+.todo-check {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+  font-size: 11px; color: transparent;
+}
+.todo-check:hover { border-color: var(--accent); }
+.todo-check.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.todo-text {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  background: none;
+  border: none;
+  font-family: var(--font-ui);
+  cursor: text;
+}
+.todo-text:focus { color: var(--text); }
+
+.todo-meta {
+  display: flex; align-items: center; gap: 6px;
+}
+.priority-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.todo-del {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 16px; line-height: 1;
+  opacity: 0; transition: opacity var(--transition);
+  padding: 2px 6px; border-radius: 4px;
+}
+.todo-item:hover .todo-del { opacity: 1; }
+.todo-del:hover { color: var(--danger); background: rgba(248,113,113,0.1); }
+
+.stats-row {
+  display: flex; gap: 16px; margin-bottom: 20px;
+}
+.stat-chip {
+  font-size: 12px; color: var(--muted);
+}
+.stat-chip b { color: var(--text); }
+
+.empty-state {
+  text-align: center; padding: 48px 24px;
+  color: var(--muted);
+}
+.empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.empty-state .empty-text { font-size: 14px; }
+
+.priority-menu {
+  position: absolute;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  display: flex; gap: 6px;
+  z-index: 99;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.pm-dot {
+  width: 18px; height: 18px;
+  border-radius: 50%; cursor: pointer;
+  transition: transform 0.15s;
+}
+.pm-dot:hover { transform: scale(1.3); }
+
+.list-section { margin-top: 28px; }
+.section-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 10px;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="nav-root"></div>
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <div class="page-title">To-Do</div>
+          <div class="page-subtitle">Tasks saved locally in your browser</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost" onclick="clearDone()">Clear Done</button>
+          <button class="btn btn-danger" onclick="clearAll()">Clear All</button>
+        </div>
+      </div>
+    </div>
+    <div class="content" style="max-width:680px;">
+      <div class="todo-input-row">
+        <input type="text" id="new-task" placeholder="Add a task… press Enter to add" onkeydown="if(event.key==='Enter')addTask()">
+        <select id="new-priority" style="width:auto;padding:10px 32px 10px 12px;flex-shrink:0;">
+          <option value="none">No priority</option>
+          <option value="low">🟢 Low</option>
+          <option value="med">🟡 Medium</option>
+          <option value="high">🔴 High</option>
+        </select>
+        <button class="btn btn-primary" onclick="addTask()">Add</button>
+      </div>
+
+      <div class="filter-row">
+        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setFilter('active',this)">Active</button>
+        <button class="filter-btn" onclick="setFilter('done',this)">Done</button>
+        <div class="filter-spacer"></div>
+        <span class="stat-chip" id="stats-text"></span>
+      </div>
+
+      <div id="list-root"></div>
+    </div>
+  </main>
+</div>
+<script src="nav.js"></script>
+<script>
+document.getElementById('nav-root').innerHTML = renderNav('todo.html');
+
+const PRIORITY_COLORS = { high:'#F87171', med:'#FBBF24', low:'#34D399', none:'var(--border)' };
+let tasks = JSON.parse(localStorage.getItem('devtools-todos') || '[]');
+let filter = 'all';
+
+function save() { localStorage.setItem('devtools-todos', JSON.stringify(tasks)); }
+
+function addTask() {
+  const input = document.getElementById('new-task');
+  const text = input.value.trim();
+  if (!text) return;
+  const priority = document.getElementById('new-priority').value;
+  tasks.unshift({ id: Date.now(), text, done: false, priority, created: new Date().toISOString() });
+  input.value = '';
+  save(); render();
+}
+
+function toggle(id) {
+  const t = tasks.find(t=>t.id===id);
+  if (t) { t.done = !t.done; save(); render(); }
+}
+
+function del(id) {
+  tasks = tasks.filter(t=>t.id!==id);
+  save(); render();
+}
+
+function edit(id, val) {
+  const t = tasks.find(t=>t.id===id);
+  if (t) { t.text = val; save(); }
+}
+
+function setPriority(id, p) {
+  const t = tasks.find(t=>t.id===id);
+  if (t) { t.priority = p; save(); render(); }
+}
+
+function setFilter(f, btn) {
+  filter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function clearDone() { tasks = tasks.filter(t=>!t.done); save(); render(); }
+function clearAll()  {
+  if (!confirm('Delete all tasks?')) return;
+  tasks = []; save(); render();
+}
+
+function render() {
+  const total = tasks.length;
+  const done  = tasks.filter(t=>t.done).length;
+  document.getElementById('stats-text').innerHTML = `<b>${total - done}</b> remaining · <b>${done}</b> done`;
+
+  let visible = tasks;
+  if (filter === 'active') visible = tasks.filter(t=>!t.done);
+  if (filter === 'done')   visible = tasks.filter(t=>t.done);
+
+  const root = document.getElementById('list-root');
+
+  if (!visible.length) {
+    const msgs = { all:'No tasks yet — add one above!', active:'Nothing left to do 🎉', done:'No completed tasks yet' };
+    root.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-text">${msgs[filter]}</div></div>`;
+    return;
+  }
+
+  root.innerHTML = visible.map(t => `
+    <div class="todo-item${t.done?' done':''}" id="item-${t.id}">
+      <button class="todo-check${t.done?' checked':''}" onclick="toggle(${t.id})">${t.done?'✓':''}</button>
+      <div class="priority-dot" style="background:${PRIORITY_COLORS[t.priority||'none']}" title="Priority" onclick="showPriorityMenu(${t.id},this)"></div>
+      <div class="todo-text" contenteditable="true" onblur="edit(${t.id},this.textContent)">${t.text}</div>
+      <button class="todo-del" onclick="del(${t.id})">×</button>
+    </div>
+  `).join('');
+}
+
+function showPriorityMenu(id, anchor) {
+  document.querySelectorAll('.priority-menu').forEach(m=>m.remove());
+  const menu = document.createElement('div');
+  menu.className = 'priority-menu';
+  menu.style.cssText = 'position:fixed;';
+  const rect = anchor.getBoundingClientRect();
+  menu.style.left = rect.left+'px';
+  menu.style.top  = (rect.bottom+4)+'px';
+  menu.innerHTML = Object.entries(PRIORITY_COLORS).map(([k,v])=>
+    `<div class="pm-dot" style="background:${v==='var(--border)'?'#2E3254':v}" title="${k}" onclick="setPriority(${id},'${k}');this.closest('.priority-menu').remove()"></div>`
+  ).join('');
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click',()=>menu.remove(),{once:true}),10);
+}
+
+render();
+</script>
+</body>
+  </html>
+  
