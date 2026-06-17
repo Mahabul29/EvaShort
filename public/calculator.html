@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator — DevTools</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.calc-wrap { max-width: 420px; }
+.calc-display {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 20px 14px;
+  margin-bottom: 12px;
+}
+.calc-expr {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 18px;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calc-result {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 4px;
+}
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.calc-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
+  padding: 16px 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+.calc-btn:hover { background: var(--surface2); border-color: var(--muted); }
+.calc-btn:active { transform: scale(0.96); }
+.calc-btn.op  { color: var(--accent-g); background: rgba(99,102,241,0.08); }
+.calc-btn.op:hover { background: rgba(99,102,241,0.18); }
+.calc-btn.eq  { background: var(--accent); color: #fff; border-color: transparent; grid-column: span 2; }
+.calc-btn.eq:hover { background: var(--accent-g); }
+.calc-btn.clr { color: var(--danger); background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.2); }
+.calc-btn.clr:hover { background: rgba(248,113,113,0.18); }
+.calc-btn.span2 { grid-column: span 2; }
+
+.history-list {
+  margin-top: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color var(--transition);
+}
+.history-item:hover { color: var(--text); }
+.history-item .h-result { font-size: 14px; color: var(--text); font-weight: 600; }
+.history-item:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="nav-root"></div>
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <div class="page-title">Calculator</div>
+          <div class="page-subtitle">Expression evaluator with history</div>
+        </div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="grid-2" style="align-items:start;">
+        <div class="calc-wrap">
+          <div class="calc-display">
+            <div class="calc-expr" id="expr"></div>
+            <div class="calc-result" id="result">0</div>
+          </div>
+          <div class="calc-grid">
+            <button class="calc-btn clr" onclick="clearAll()">AC</button>
+            <button class="calc-btn op"  onclick="input('(')">(</button>
+            <button class="calc-btn op"  onclick="input(')')">)</button>
+            <button class="calc-btn op"  onclick="input('/')">÷</button>
+
+            <button class="calc-btn" onclick="input('7')">7</button>
+            <button class="calc-btn" onclick="input('8')">8</button>
+            <button class="calc-btn" onclick="input('9')">9</button>
+            <button class="calc-btn op" onclick="input('*')">×</button>
+
+            <button class="calc-btn" onclick="input('4')">4</button>
+            <button class="calc-btn" onclick="input('5')">5</button>
+            <button class="calc-btn" onclick="input('6')">6</button>
+            <button class="calc-btn op" onclick="input('-')">−</button>
+
+            <button class="calc-btn" onclick="input('1')">1</button>
+            <button class="calc-btn" onclick="input('2')">2</button>
+            <button class="calc-btn" onclick="input('3')">3</button>
+            <button class="calc-btn op" onclick="input('+')">+</button>
+
+            <button class="calc-btn" onclick="input('0')">0</button>
+            <button class="calc-btn" onclick="input('.')">.</button>
+            <button class="calc-btn op" onclick="del()">⌫</button>
+            <button class="calc-btn op" onclick="input('%')">%</button>
+
+            <button class="calc-btn eq" onclick="evaluate()">=</button>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title flex justify-between items-center">
+              History
+              <button class="btn btn-ghost text-xs" style="padding:4px 10px;" onclick="clearHistory()">Clear</button>
+            </div>
+            <div class="history-list" id="history">
+              <div class="text-muted text-sm" style="padding:8px 0;">No calculations yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="nav.js"></script>
+<script>
+document.getElementById('nav-root').innerHTML = renderNav('calculator.html');
+
+let expr = '';
+let history = [];
+
+function updateDisplay() {
+  document.getElementById('expr').textContent = expr || '';
+  if (!expr) { document.getElementById('result').textContent = '0'; return; }
+  try {
+    const r = Function('"use strict"; return (' + expr.replace(/%/g,'*0.01') + ')')();
+    if (!isNaN(r) && isFinite(r)) {
+      document.getElementById('result').textContent = +r.toFixed(10) + '';
+    }
+  } catch(e) {}
+}
+
+function input(v) {
+  const map = {'*':'*', '/':'/', '+':'+', '-':'-'};
+  expr += v;
+  updateDisplay();
+}
+
+function clearAll() { expr = ''; document.getElementById('result').textContent = '0'; document.getElementById('expr').textContent = ''; }
+function del() { expr = expr.slice(0,-1); updateDisplay(); }
+
+function evaluate() {
+  if (!expr) return;
+  try {
+    const r = Function('"use strict"; return (' + expr.replace(/%/g,'*0.01') + ')')();
+    const result = +r.toFixed(10) + '';
+    history.unshift({ expr, result });
+    if (history.length > 20) history.pop();
+    renderHistory();
+    document.getElementById('expr').textContent = expr + ' =';
+    document.getElementById('result').textContent = result;
+    expr = result;
+  } catch(e) {
+    document.getElementById('result').textContent = 'Error';
+  }
+}
+
+function renderHistory() {
+  const el = document.getElementById('history');
+  if (!history.length) { el.innerHTML = '<div class="text-muted text-sm" style="padding:8px 0;">No calculations yet</div>'; return; }
+  el.innerHTML = history.map(h => `
+    <div class="history-item" onclick="useHistory('${h.result}')">
+      <span>${h.expr}</span>
+      <span class="h-result">${h.result}</span>
+    </div>`).join('');
+}
+
+function useHistory(val) { expr = val; updateDisplay(); }
+function clearHistory() { history = []; renderHistory(); }
+
+document.addEventListener('keydown', e => {
+  if (e.key >= '0' && e.key <= '9') input(e.key);
+  else if ('+-*/().%'.includes(e.key)) input(e.key);
+  else if (e.key === 'Enter' || e.key === '=') evaluate();
+  else if (e.key === 'Backspace') del();
+  else if (e.key === 'Escape') clearAll();
+});
+</script>
+</body>
+</html>
