@@ -6,19 +6,28 @@ from config import PORT, HOST
 
 app = FastAPI()
 
-# Mount your public folder so all your HTML/CSS/JS files load properly
+# 1. Determine where your frontend files live
 if os.path.exists("public"):
-    app.mount("/public", StaticFiles(directory="public"), name="public")
+    STATIC_DIR = "public"
+else:
+    STATIC_DIR = "."  # Root folder fallback
 
+# 2. Serve the home page (index.html)
 @app.get("/")
 async def read_index():
-    # Serves your main index.html file from the public directory
-    index_path = os.path.join("public", "index.html")
+    index_path = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"message": "Welcome to EvaShort! Put your index.html inside a 'public' folder."}
+    return {"error": f"index.html not found in '{STATIC_DIR}'. Please check your file placement."}
+
+# 3. Mount static files so CSS, JS, and Images load properly
+if STATIC_DIR == "public":
+    app.mount("/public", StaticFiles(directory="public"), name="public")
+else:
+    # If files are in root, serve everything else dynamically
+    app.mount("/assets", StaticFiles(directory="."), name="assets")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
-  
+    uvicorn.run("main:app", host=HOST, port=PORT)
+    
